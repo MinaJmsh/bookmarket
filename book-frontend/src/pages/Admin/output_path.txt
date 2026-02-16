@@ -1,0 +1,1082 @@
+Folder Structure
+--------------------------------------------------
+./
+    AdminBooksPage.jsx
+    AdminDashboard.jsx
+    AdminPages.css
+    AdminSupportPage.jsx
+    AdminUsersPage.jsx
+
+
+File Contents
+--------------------------------------------------
+
+
+AdminBooksPage.jsx
+File type: .jsx
+import React, { useState, useEffect } from "react";
+import { toast } from "react-toastify";
+import { FiCheck, FiX, FiSearch } from "react-icons/fi";
+import api from "../../services/api";
+import "./AdminPages.css";
+
+const AdminBooksPage = () => {
+  const [books, setBooks] = useState([]);
+  const [filteredBooks, setFilteredBooks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+
+  useEffect(() => {
+    fetchBooks();
+  }, []);
+
+  useEffect(() => {
+    let filtered = books;
+
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (book) =>
+          book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          book.author.toLowerCase().includes(searchTerm.toLowerCase()),
+      );
+    }
+
+    if (filterStatus !== "all") {
+      if (filterStatus === "pending") {
+        filtered = filtered.filter((book) => !book.is_approved);
+      } else if (filterStatus === "approved") {
+        filtered = filtered.filter((book) => book.is_approved);
+      }
+    }
+
+    setFilteredBooks(filtered);
+  }, [searchTerm, filterStatus, books]);
+
+  const fetchBooks = async () => {
+    try {
+      const response = await api.get("/books/");
+      setBooks(response.data);
+      setFilteredBooks(response.data);
+    } catch (error) {
+      toast.error("خطا در دریافت کتاب‌ها");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApprove = async (bookId) => {
+    try {
+      await api.post(`/books/${bookId}/approve/`);
+      toast.success("کتاب تایید شد");
+      fetchBooks();
+    } catch (error) {
+      toast.error("خطا در تایید کتاب");
+    }
+  };
+
+  const handleReject = async (bookId) => {
+    try {
+      await api.post(`/books/${bookId}/reject/`);
+      toast.success("کتاب رد شد");
+      fetchBooks();
+    } catch (error) {
+      toast.error("خطا در رد کتاب");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="admin-page">
+      <div className="container">
+        <div className="page-header">
+          <h1>مدیریت کتاب‌ها</h1>
+          <p>تایید و مدیریت کتاب‌های ثبت شده</p>
+        </div>
+
+        <div className="admin-content">
+          <div className="filters-section">
+            <div className="search-bar">
+              <FiSearch className="search-icon" />
+              <input
+                type="text"
+                placeholder="جستجو بر اساس عنوان یا نویسنده..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="filter-select"
+            >
+              <option value="all">همه کتاب‌ها</option>
+              <option value="pending">در انتظار تایید</option>
+              <option value="approved">تایید شده</option>
+            </select>
+          </div>
+
+          <div className="admin-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>تصویر</th>
+                  <th>عنوان</th>
+                  <th>نویسنده</th>
+                  <th>فروشنده</th>
+                  <th>قیمت</th>
+                  <th>وضعیت</th>
+                  <th>عملیات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredBooks.map((book) => (
+                  <tr key={book.id}>
+                    <td>
+                      <img
+                        src={book.image || "/default-book.png"}
+                        alt={book.title}
+                        className="book-thumb"
+                      />
+                    </td>
+                    <td>{book.title}</td>
+                    <td>{book.author}</td>
+                    <td>{book.seller_name}</td>
+                    <td>{Number(book.price).toLocaleString("fa-IR")} تومان</td>
+                    <td>
+                      {book.is_approved ? (
+                        <span className="badge badge-success">تایید شده</span>
+                      ) : (
+                        <span className="badge badge-warning">در انتظار</span>
+                      )}
+                    </td>
+                    <td>
+                      <div className="action-buttons">
+                        {!book.is_approved ? (
+                          <>
+                            <button
+                              onClick={() => handleApprove(book.id)}
+                              className="btn-icon approve"
+                              title="تایید"
+                            >
+                              <FiCheck />
+                            </button>
+                            <button
+                              onClick={() => handleReject(book.id)}
+                              className="btn-icon delete"
+                              title="رد"
+                            >
+                              <FiX />
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => handleReject(book.id)}
+                            className="btn-icon delete"
+                            title="لغو تایید"
+                          >
+                            <FiX />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AdminBooksPage;
+
+
+--------------------------------------------------
+File End
+--------------------------------------------------
+
+
+AdminDashboard.jsx
+File type: .jsx
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import {
+  FiUsers,
+  FiBook,
+  FiShoppingCart,
+  FiMessageSquare,
+} from "react-icons/fi";
+import api from "../../services/api";
+import "./AdminPages.css";
+
+const AdminDashboard = () => {
+  const [stats, setStats] = useState({
+    active_users: 0,
+    total_books: 0,
+    books_breakdown: {
+      approved: 0,
+      pending: 0,
+    },
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      const response = await api.get("/admin-reports/");
+      setStats(response.data);
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statCards = [
+    {
+      title: "کاربران فعال",
+      value: stats.active_users,
+      icon: <FiUsers />,
+      color: "primary",
+      link: "/admin/users",
+    },
+    {
+      title: "کل کتاب‌ها",
+      value: stats.total_books,
+      icon: <FiBook />,
+      color: "secondary",
+      link: "/admin/books",
+    },
+    {
+      title: "کتاب‌های تایید شده",
+      value: stats.books_breakdown.approved,
+      icon: <FiShoppingCart />,
+      color: "success",
+      link: "/admin/books",
+    },
+    {
+      title: "در انتظار تایید",
+      value: stats.books_breakdown.pending,
+      icon: <FiMessageSquare />,
+      color: "warning",
+      link: "/admin/books",
+    },
+  ];
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="admin-page">
+      <div className="container">
+        <div className="page-header">
+          <h1>داشبورد مدیریت</h1>
+          <p>مدیریت کلی سیستم</p>
+        </div>
+
+        <div className="admin-content">
+          <div className="stats-grid">
+            {statCards.map((stat, index) => (
+              <Link
+                key={index}
+                to={stat.link}
+                className={`stat-card ${stat.color}`}
+              >
+                <div className="stat-icon">{stat.icon}</div>
+                <div className="stat-info">
+                  <h3>{stat.value.toLocaleString("fa-IR")}</h3>
+                  <p>{stat.title}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          <div className="quick-actions">
+            <h2>دسترسی سریع</h2>
+            <div className="quick-actions-grid">
+              <Link to="/admin/users" className="quick-action-card">
+                <FiUsers />
+                <span>مدیریت کاربران</span>
+              </Link>
+              <Link to="/admin/books" className="quick-action-card">
+                <FiBook />
+                <span>مدیریت کتاب‌ها</span>
+              </Link>
+              <Link to="/admin/support" className="quick-action-card">
+                <FiMessageSquare />
+                <span>پشتیبانی</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AdminDashboard;
+
+
+--------------------------------------------------
+File End
+--------------------------------------------------
+
+
+AdminPages.css
+File type: .css
+.admin-page {
+  min-height: 100vh;
+  padding: var(--spacing-xl) 0;
+  background: var(--bg-primary);
+}
+
+.admin-content {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-2xl);
+}
+
+.stat-card {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  transition: all 0.3s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.stat-card.primary .stat-icon {
+  background: linear-gradient(
+    135deg,
+    var(--primary) 0%,
+    var(--primary-dark) 100%
+  );
+}
+
+.stat-card.secondary .stat-icon {
+  background: linear-gradient(
+    135deg,
+    var(--secondary) 0%,
+    var(--secondary-dark) 100%
+  );
+}
+
+.stat-card.success .stat-icon {
+  background: linear-gradient(135deg, var(--success) 0%, #1e4620 100%);
+}
+
+.stat-card.warning .stat-icon {
+  background: linear-gradient(
+    135deg,
+    var(--warning) 0%,
+    var(--secondary-dark) 100%
+  );
+}
+
+.stat-icon {
+  width: 70px;
+  height: 70px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: white;
+  flex-shrink: 0;
+}
+
+.stat-info h3 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1;
+}
+
+.stat-info p {
+  color: var(--text-secondary);
+  margin: var(--spacing-xs) 0 0 0;
+  font-size: 0.875rem;
+}
+
+.quick-actions {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  box-shadow: var(--shadow-sm);
+}
+
+.quick-actions h2 {
+  margin-bottom: var(--spacing-lg);
+  font-size: 1.5rem;
+}
+
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.quick-action-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-xl);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 2px solid var(--border);
+  text-decoration: none;
+  color: var(--text-primary);
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.quick-action-card:hover {
+  border-color: var(--primary);
+  background: var(--bg-tertiary);
+  transform: translateY(-2px);
+}
+
+.quick-action-card svg {
+  font-size: 2.5rem;
+  color: var(--primary);
+}
+
+.search-section,
+.filters-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.filter-select {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.admin-table {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-md);
+  overflow-x: auto;
+}
+
+.admin-table table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+}
+
+.admin-table th {
+  background: var(--bg-secondary);
+  padding: var(--spacing-md);
+  text-align: right;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+
+.admin-table td {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.admin-table tr:hover {
+  background: var(--bg-secondary);
+}
+
+.admin-table .book-thumb {
+  width: 50px;
+  height: 70px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: var(--spacing-lg);
+}
+
+.modal-content {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-2xl);
+  max-width: 500px;
+  width: 100%;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-content h3 {
+  margin-bottom: var(--spacing-lg);
+  color: var(--text-primary);
+}
+
+.modal-content p {
+  margin-bottom: var(--spacing-xl);
+  color: var(--text-secondary);
+}
+
+.role-buttons {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+  flex-wrap: wrap;
+}
+
+.role-buttons .btn {
+  flex: 1;
+}
+
+.tickets-admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.ticket-admin-card {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+}
+
+.ticket-admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-lg);
+  border-bottom: 1px solid var(--border);
+}
+
+.ticket-admin-header h3 {
+  font-size: 1.25rem;
+  margin-bottom: var(--spacing-xs);
+  color: var(--primary);
+}
+
+.ticket-user {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin: var(--spacing-xs) 0;
+}
+
+.ticket-date {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.ticket-admin-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.ticket-message {
+  color: var(--text-primary);
+  line-height: 1.7;
+}
+
+.admin-reply-show {
+  background: var(--bg-secondary);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-md);
+  border-right: 3px solid var(--primary);
+}
+
+.admin-reply-show strong {
+  display: block;
+  margin-bottom: var(--spacing-sm);
+  color: var(--primary);
+}
+
+.admin-reply-show p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.reply-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.reply-form textarea {
+  width: 100%;
+  padding: var(--spacing-md);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-size: 1rem;
+  resize: vertical;
+}
+
+.reply-form textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.reply-actions {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+@media (max-width: 968px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .quick-actions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-table {
+    overflow-x: scroll;
+  }
+
+  .ticket-admin-header {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .reply-actions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-info h3 {
+    font-size: 2rem;
+  }
+}
+
+
+--------------------------------------------------
+File End
+--------------------------------------------------
+
+
+AdminSupportPage.jsx
+File type: .jsx
+import React, { useState, useEffect } from "react";
+import { toast } from "react-toastify";
+import { FiSend } from "react-icons/fi";
+import api from "../../services/api";
+import "./AdminPages.css";
+
+const AdminSupportPage = () => {
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyText, setReplyText] = useState("");
+
+  useEffect(() => {
+    fetchTickets();
+  }, []);
+
+  const fetchTickets = async () => {
+    try {
+      const response = await api.get("/support-tickets/");
+      setTickets(response.data);
+    } catch (error) {
+      toast.error("خطا در دریافت تیکت‌ها");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReply = async (ticketId) => {
+    if (!replyText.trim()) {
+      toast.error("لطفا پاسخ را وارد کنید");
+      return;
+    }
+
+    try {
+      await api.post(`/support-tickets/${ticketId}/reply/`, {
+        admin_reply: replyText,
+      });
+      toast.success("پاسخ ارسال شد");
+      setReplyingTo(null);
+      setReplyText("");
+      fetchTickets();
+    } catch (error) {
+      toast.error("خطا در ارسال پاسخ");
+    }
+  };
+
+  const getSubjectText = (subject) => {
+    const subjects = {
+      technical: "مشکل فنی",
+      payment: "مشکل پرداخت",
+      report: "گزارش",
+      other: "سایر",
+    };
+    return subjects[subject] || subject;
+  };
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="admin-page">
+      <div className="container">
+        <div className="page-header">
+          <h1>مدیریت پشتیبانی</h1>
+          <p>پاسخ به تیکت‌های کاربران</p>
+        </div>
+
+        <div className="admin-content">
+          <div className="tickets-admin-list">
+            {tickets.map((ticket) => (
+              <div key={ticket.id} className="ticket-admin-card">
+                <div className="ticket-admin-header">
+                  <div>
+                    <h3>{getSubjectText(ticket.subject)}</h3>
+                    <p className="ticket-user">کاربر: {ticket.user}</p>
+                    <p className="ticket-date">
+                      {new Date(ticket.created_at).toLocaleDateString("fa-IR")}
+                    </p>
+                  </div>
+                  <span
+                    className={`badge ${ticket.is_resolved ? "badge-success" : "badge-warning"}`}
+                  >
+                    {ticket.is_resolved ? "پاسخ داده شده" : "در انتظار"}
+                  </span>
+                </div>
+
+                <div className="ticket-admin-body">
+                  <p className="ticket-message">
+                    <strong>پیام:</strong> {ticket.message}
+                  </p>
+
+                  {ticket.admin_reply && (
+                    <div className="admin-reply-show">
+                      <strong>پاسخ شما:</strong>
+                      <p>{ticket.admin_reply}</p>
+                    </div>
+                  )}
+
+                  {!ticket.is_resolved && (
+                    <>
+                      {replyingTo === ticket.id ? (
+                        <div className="reply-form">
+                          <textarea
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            placeholder="پاسخ خود را بنویسید..."
+                            rows="4"
+                          />
+                          <div className="reply-actions">
+                            <button
+                              onClick={() => handleReply(ticket.id)}
+                              className="btn btn-primary"
+                            >
+                              <FiSend /> ارسال پاسخ
+                            </button>
+                            <button
+                              onClick={() => {
+                                setReplyingTo(null);
+                                setReplyText("");
+                              }}
+                              className="btn btn-secondary"
+                            >
+                              انصراف
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setReplyingTo(ticket.id)}
+                          className="btn btn-primary btn-small"
+                        >
+                          پاسخ دادن
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AdminSupportPage;
+
+
+--------------------------------------------------
+File End
+--------------------------------------------------
+
+
+AdminUsersPage.jsx
+File type: .jsx
+import React, { useState, useEffect } from "react";
+import { toast } from "react-toastify";
+import { FiEdit, FiTrash2, FiSearch } from "react-icons/fi";
+import api from "../../services/api";
+import "./AdminPages.css";
+
+const AdminUsersPage = () => {
+  const [users, setUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [editingUser, setEditingUser] = useState(null);
+  const [roleModal, setRoleModal] = useState(false);
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  useEffect(() => {
+    const filtered = users.filter(
+      (user) =>
+        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
+    setFilteredUsers(filtered);
+  }, [searchTerm, users]);
+
+  const fetchUsers = async () => {
+    try {
+      const response = await api.get("/users/");
+      setUsers(response.data);
+      setFilteredUsers(response.data);
+    } catch (error) {
+      toast.error("خطا در دریافت کاربران");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChangeRole = async (userId, newRole) => {
+    try {
+      await api.post(`/users/${userId}/update-role/`, { role: newRole });
+      toast.success("نقش کاربر تغییر کرد");
+      fetchUsers();
+      setRoleModal(false);
+      setEditingUser(null);
+    } catch (error) {
+      toast.error("خطا در تغییر نقش");
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (!window.confirm("آیا از حذف این کاربر اطمینان دارید؟")) return;
+
+    try {
+      await api.delete(`/users/${userId}/`);
+      toast.success("کاربر حذف شد");
+      fetchUsers();
+    } catch (error) {
+      toast.error("خطا در حذف کاربر");
+    }
+  };
+
+  const getRoleBadge = (role) => {
+    const roles = {
+      admin: { text: "مدیر", class: "badge-error" },
+      seller: { text: "فروشنده", class: "badge-warning" },
+      buyer: { text: "خریدار", class: "badge-success" },
+    };
+    return roles[role] || roles["buyer"];
+  };
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="admin-page">
+      <div className="container">
+        <div className="page-header">
+          <h1>مدیریت کاربران</h1>
+          <p>مشاهده و مدیریت کاربران سیستم</p>
+        </div>
+
+        <div className="admin-content">
+          <div className="search-section">
+            <div className="search-bar">
+              <FiSearch className="search-icon" />
+              <input
+                type="text"
+                placeholder="جستجو بر اساس نام کاربری یا ایمیل..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="admin-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>شناسه</th>
+                  <th>نام کاربری</th>
+                  <th>ایمیل</th>
+                  <th>شماره تماس</th>
+                  <th>نقش</th>
+                  <th>عملیات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map((user) => (
+                  <tr key={user.id}>
+                    <td>{user.id}</td>
+                    <td>{user.username}</td>
+                    <td>{user.email}</td>
+                    <td>{user.phone_number || "-"}</td>
+                    <td>
+                      <span
+                        className={`badge ${getRoleBadge(user.role).class}`}
+                      >
+                        {getRoleBadge(user.role).text}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="action-buttons">
+                        <button
+                          onClick={() => {
+                            setEditingUser(user);
+                            setRoleModal(true);
+                          }}
+                          className="btn-icon edit"
+                          title="تغییر نقش"
+                        >
+                          <FiEdit />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUser(user.id)}
+                          className="btn-icon delete"
+                          title="حذف"
+                        >
+                          <FiTrash2 />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {roleModal && editingUser && (
+          <div className="modal-overlay" onClick={() => setRoleModal(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <h3>تغییر نقش کاربر</h3>
+              <p>کاربر: {editingUser.username}</p>
+              <div className="role-buttons">
+                <button
+                  onClick={() => handleChangeRole(editingUser.id, "buyer")}
+                  className="btn btn-secondary"
+                >
+                  خریدار
+                </button>
+                <button
+                  onClick={() => handleChangeRole(editingUser.id, "seller")}
+                  className="btn btn-secondary"
+                >
+                  فروشنده
+                </button>
+                <button
+                  onClick={() => handleChangeRole(editingUser.id, "admin")}
+                  className="btn btn-accent"
+                >
+                  مدیر
+                </button>
+              </div>
+              <button
+                onClick={() => setRoleModal(false)}
+                className="btn btn-secondary"
+              >
+                انصراف
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default AdminUsersPage;
+
+
+--------------------------------------------------
+File End
+--------------------------------------------------
