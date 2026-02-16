@@ -1,0 +1,7 @@
+cd bookmarket
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass  
+venv\Scripts\Activate.ps1
+pip install django djangorestframework django-filter Pillow
+py manage.py runserver    
+
+
